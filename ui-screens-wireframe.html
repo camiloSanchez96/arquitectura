@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Auri · Mapa visual de pantallas con conexiones</title>
+<style>
+  :root {
+    --bg:#FAFAFC;
+    --paper:#FFFFFF;
+    --ink:#1E2535;
+    --ink-soft:#525B70;
+    --muted:#8A93A6;
+    --line:#D7DBE3;
+    --line-soft:#ECEEF3;
+    --cta:#8A2BE2;
+    --cta-soft:#E9DBFA;
+    --hub:#00A5C0;
+    --hub-soft:#D6F4FA;
+    --auth:#8A2BE2;
+    --auth-soft:#EFE4FB;
+    --onb:#E08A1E;
+    --onb-soft:#FCEBD2;
+    --money:#1E9A53;
+    --money-soft:#D8F2E3;
+    --pay:#D03939;
+    --pay-soft:#FBE0E0;
+    --tools:#3B6FE3;
+    --tools-soft:#DCE6FA;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0;
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    background:
+      linear-gradient(90deg, transparent 0, transparent 39px, var(--line-soft) 39px, var(--line-soft) 40px) 0 0/40px 40px,
+      linear-gradient(0deg, transparent 0, transparent 39px, var(--line-soft) 39px, var(--line-soft) 40px) 0 0/40px 40px,
+      var(--bg);
+    color: var(--ink);
+    padding: 40px 24px 120px;
+  }
+  header {
+    max-width: 1700px;
+    margin: 0 auto 24px;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+  }
+  .subtitle { color: var(--muted); margin: 0 0 16px; font-size: 14px; max-width: 800px; }
+  .legend {
+    display:flex; flex-wrap:wrap; gap: 12px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    font-size: 12px;
+  }
+  .legend-item { display:flex; align-items:center; gap:6px; }
+  .pill {
+    display:inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill-hub { background: var(--hub-soft); color: var(--hub); }
+  .pill-auth { background: var(--auth-soft); color: var(--auth); }
+  .pill-onb { background: var(--onb-soft); color: var(--onb); }
+  .pill-money { background: var(--money-soft); color: var(--money); }
+  .pill-pay { background: var(--pay-soft); color: var(--pay); }
+  .pill-tools { background: var(--tools-soft); color: var(--tools); }
+
+  .controls {
+    display:flex; gap: 12px; align-items:center; flex-wrap: wrap;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 24px;
+    font-size: 12px;
+  }
+  .controls button {
+    background: var(--ink);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .controls button.secondary {
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .controls .hint {
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  /* Canvas */
+  .canvas {
+    position: relative;
+    max-width: 1700px;
+    margin: 0 auto;
+  }
+  .connections {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+    overflow: visible;
+  }
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(280px, 1fr));
+    gap: 56px;
+    position: relative;
+    z-index: 2;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+  .col-header {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    padding: 10px 16px;
+    margin-bottom: 4px;
+  }
+
+  /* Screen card */
+  .screen {
+    background: var(--paper);
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px 16px;
+    box-shadow: 0 1px 0 rgba(0,0,0,.02), 0 8px 16px -12px rgba(0,0,0,.12);
+    position: relative;
+    transition: box-shadow .2s, transform .2s;
+    cursor: pointer;
+  }
+  .screen:hover {
+    box-shadow: 0 0 0 3px rgba(138,43,226,.15), 0 10px 24px -12px rgba(0,0,0,.18);
+  }
+  .screen.dimmed { opacity: .25; }
+  .screen.highlighted { box-shadow: 0 0 0 3px var(--cta), 0 10px 24px -12px rgba(0,0,0,.25); }
+  .screen.is-hidden {
+    opacity: 0.06;
+    filter: grayscale(1);
+    pointer-events: none;
+    transition: opacity .2s, filter .2s;
+  }
+  .screen.is-focus {
+    box-shadow: 0 0 0 4px var(--cta), 0 14px 32px -10px rgba(138,43,226,.4);
+    transform: scale(1.02);
+    z-index: 5;
+    transition: box-shadow .2s, transform .2s;
+  }
+  .screen.is-related {
+    box-shadow: 0 0 0 2px var(--cta), 0 10px 24px -12px rgba(0,0,0,.25);
+  }
+  body.is-locked .screen:not(.is-focus):not(.is-related) { cursor: default; }
+  .screen-tag {
+    position: absolute;
+    top: -10px;
+    left: 14px;
+  }
+  .screen-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 4px 0 10px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .section { margin-bottom: 10px; }
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .section-content {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+  .section-content ul { margin: 0; padding-left: 16px; }
+  .section-content li { margin-bottom: 2px; }
+  .cta-list {
+    display:flex; flex-direction:column; gap: 4px;
+    margin-top: 6px;
+  }
+  .cta-row {
+    display:flex;
+    align-items:center;
+    gap: 6px;
+    background: var(--cta-soft);
+    border-left: 3px solid var(--cta);
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--cta);
+    font-weight: 600;
+    position: relative;
+    cursor: default;
+  }
+  .cta-row[data-to]::after {
+    content: "";
+    position: absolute;
+    right: -7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cta);
+    box-shadow: 0 0 0 2px var(--paper);
+    z-index: 3;
+  }
+  .cta-row .arrow {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--cta);
+    opacity: .7;
+  }
+  .cta-row .target {
+    font-weight: 500;
+    color: var(--ink-soft);
+    font-size: 10.5px;
+  }
+  .state-row {
+    background: #F4F4F8;
+    color: var(--muted);
+    border-left: 3px solid var(--muted);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-style: italic;
+    margin-top: 2px;
+  }
+
+  .screen.hub { border-color: var(--hub); background: linear-gradient(180deg, #F0FBFD 0%, #FFFFFF 60%); border-width: 2.5px; }
+  .screen.auth { border-color: var(--auth); }
+  .screen.onb { border-color: var(--onb); }
+  .screen.money { border-color: var(--money); }
+  .screen.pay { border-color: var(--pay); }
+  .screen.tools { border-color: var(--tools); }
+
+  .group-divider {
+    border-top: 2px dashed var(--line);
+    margin: 8px 0 4px;
+    padding-top: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: center;
+  }
+
+  /* Connection paths */
+  .connections path {
+    fill: none;
+    stroke: var(--cta);
+    stroke-width: 1.4;
+    stroke-opacity: 0.22;
+    transition: stroke-opacity .15s, stroke-width .15s;
+  }
+  .connections path.is-active {
+    stroke-opacity: 0.95;
+    stroke-width: 2.2;
+  }
+  .connections path.is-dimmed {
+    stroke-opacity: 0.05;
+  }
+  .connections path.is-hidden {
+    stroke-opacity: 0;
+  }
+  .connections path.color-auth { stroke: var(--auth); }
+  .connections path.color-onb  { stroke: var(--onb);  }
+  .connections path.color-hub  { stroke: var(--hub);  }
+  .connections path.color-money{ stroke: var(--money);}
+  .connections path.color-pay  { stroke: var(--pay);  }
+  .connections path.color-tools{ stroke: var(--tools);}
+
+  .footer-note {
+    max-width: 1700px;
+    margin: 40px auto 0;
+    padding: 16px 20px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+  .footer-note strong { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mapa visual de pantallas · Auri</h1>
+  <p class="subtitle">Cada caja es una pantalla. Las pastillas moradas son botones / acciones del usuario. Las <strong>líneas curvas</strong> muestran a qué pantalla lleva cada botón.</p>
+  <div class="legend">
+    <div class="legend-item"><span class="pill pill-hub">HUB</span> Pantalla principal</div>
+    <div class="legend-item"><span class="pill pill-auth">ACCESO</span> Login y registro</div>
+    <div class="legend-item"><span class="pill pill-onb">BIENVENIDA</span> Onboarding</div>
+    <div class="legend-item"><span class="pill pill-money">DINERO</span> Registrar y editar</div>
+    <div class="legend-item"><span class="pill pill-tools">HERRAMIENTAS</span> Reportes / Recurrentes / Perfil</div>
+    <div class="legend-item"><span class="pill pill-pay">PAGO</span> Planes y familiar</div>
+  </div>
+  <div class="controls">
+    <button id="btn-all">Ver todas las conexiones</button>
+    <button class="secondary" id="btn-clear">Ocultar conexiones</button>
+    <button class="secondary" id="btn-unlock" style="display:none;">🔓 Desbloquear selección</button>
+    <span class="hint">💡 Pasa el cursor para resaltar · <strong>Click</strong> sobre una pantalla para fijar la selección</span>
+  </div>
+</header>
+
+<div class="canvas">
+  <svg class="connections" id="svg-connections"></svg>
+<div class="columns">
+
+  <!-- ================= COLUMNA 1: ACCESO ================= -->
+  <div class="col">
+    <div class="col-header">1 · Entrada</div>
+
+    <div class="screen auth" id="splash">
+      <span class="screen-tag pill pill-auth">ACCESO</span>
+      <div class="screen-title">Pantalla de carga</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content">
+          <ul><li>Logo de Auri centrado</li><li>Fondo con gradiente</li></ul>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-label">Qué hace</div>
+        <div class="section-content">Verifica si hay sesión y decide a dónde mandar al usuario.</div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="presentation">Sin sesión, primera vez <span class="arrow">→</span> <span class="target">Bienvenida</span></div>
+        <div class="cta-row" data-to="login">Sin sesión <span class="arrow">→</span> <span class="target">Iniciar sesión</span></div>
+        <div class="cta-row" data-to="dashboard">Sesión válida <span class="arrow">→</span> <span class="target">Panel principal</span></div>
+      </div>
+    </div>
+
+    <div class="screen onb" id="presentation">
+      <span class="screen-tag pill pill-onb">BIENVENIDA</span>
+      <div class="screen-title">Presentación de la app</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul><li>Carrusel de 3 diapositivas</li><li>Título y descripción por slide</li><li>Puntos de progreso (1, 2, 3)</li></ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="login">Botón <em>Empezar ahora</em> <span class="arrow">→</span> <span class="target">Iniciar sesión</span></div>
+        <div class="cta-row" data-to="login">Enlace <em>Saltar</em> <span class="arrow">→</span> <span class="target">Iniciar sesión</span></div>
+      </div>
+    </div>
+
+    <div class="screen auth" id="login">
+      <span class="screen-tag pill pill-auth">ACCESO</span>
+      <div class="screen-title">Iniciar sesión</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Logo de Auri</li><li>Campo de correo electrónico</li><li>Campo de contraseña</li>
+          <li>Enlace <em>¿Olvidaste tu contraseña?</em></li><li>Botón principal de acceso</li>
+          <li>Botón "Continuar con Google"</li><li>Texto legal con enlaces</li><li>Enlace para crear cuenta</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="dashboard">Botón <em>Ingresar</em> <span class="arrow">→</span> <span class="target">Panel principal</span></div>
+        <div class="cta-row" data-to="dashboard">Botón <em>Continuar con Google</em> <span class="arrow">→</span> <span class="target">Panel principal</span></div>
+        <div class="cta-row" data-to="forgot"><em>¿Olvidaste tu contraseña?</em> <span class="arrow">→</span> <span class="target">Recuperar contraseña</span></div>
+        <div class="cta-row" data-to="register">Enlace <em>Regístrate aquí</em> <span class="arrow">→</span> <span class="target">Crear cuenta</span></div>
+        <div class="state-row">⚙️ Si cuenta está en periodo de gracia → Restaurar cuenta</div>
+      </div>
+    </div>
+
+    <div class="screen auth" id="register">
+      <span class="screen-tag pill pill-auth">ACCESO</span>
+      <div class="screen-title">Crear cuenta</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Nombre completo</li><li>Número celular (opcional)</li><li>Correo electrónico</li>
+          <li>Contraseña + requisitos en vivo</li><li>Confirmar contraseña</li>
+          <li>Checkboxes de términos y privacidad</li><li>Botón "Continuar con Google"</li>
+          <li>Enlace para iniciar sesión</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="onb-balance">Botón <em>Crear cuenta</em> <span class="arrow">→</span> <span class="target">Paso 1 (Saldo inicial)</span></div>
+        <div class="cta-row" data-to="onb-balance">Botón Google <span class="arrow">→</span> <span class="target">Paso 1 (Saldo inicial)</span></div>
+        <div class="cta-row" data-to="login"><em>Inicia sesión</em> <span class="arrow">→</span> <span class="target">Iniciar sesión</span></div>
+      </div>
+    </div>
+
+    <div class="screen auth" id="forgot">
+      <span class="screen-tag pill pill-auth">ACCESO</span>
+      <div class="screen-title">Recuperar contraseña</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Título "Olvidé mi contraseña"</li><li>Instrucciones cortas</li><li>Campo de correo</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="login">Botón <em>Enviar instrucciones</em> <span class="arrow">→</span> <span class="target">Iniciar sesión</span></div>
+        <div class="cta-row" data-to="login">Enlace <em>Volver al login</em> <span class="arrow">→</span> <span class="target">Iniciar sesión</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= COLUMNA 2: ONBOARDING v2 ================= -->
+  <div class="col">
+    <div class="col-header">2 · Bienvenida (4 pasos)</div>
+
+    <div class="screen onb" id="onb-balance">
+      <span class="screen-tag pill pill-onb">PASO 1 DE 4</span>
+      <div class="screen-title">Saldo inicial</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Indicador "Paso 1 de 4"</li><li>Campo: dinero disponible hoy</li>
+          <li>Campo: ingreso estimado mensual</li><li>Tarjeta informativa sobre privacidad</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="onb-budgets">Botón <em>Continuar</em> <span class="arrow">→</span> <span class="target">Paso 2 (Presupuestos)</span></div>
+        <div class="cta-row" data-to="onb-budgets">Enlace <em>Saltar</em> <span class="arrow">→</span> <span class="target">Paso 2 (Presupuestos)</span></div>
+      </div>
+    </div>
+
+    <div class="screen onb" id="onb-budgets">
+      <span class="screen-tag pill pill-onb">PASO 2 DE 4</span>
+      <div class="screen-title">Presupuestos sugeridos</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Lista de categorías con monto editable</li><li>Porcentaje sugerido por categoría</li>
+          <li>Tarjeta resumen: total vs ingreso</li><li>Barra de progreso del presupuesto</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="onb-notif">Botón <em>Crear presupuestos</em> <span class="arrow">→</span> <span class="target">Paso 3 (Notificaciones)</span></div>
+        <div class="cta-row" data-to="onb-notif">Enlace <em>Saltar</em> <span class="arrow">→</span> <span class="target">Paso 3 (Notificaciones)</span></div>
+        <div class="state-row">⚙️ Si monto supera ingreso → advertencia visual</div>
+      </div>
+    </div>
+
+    <div class="screen onb" id="onb-notif">
+      <span class="screen-tag pill pill-onb">PASO 3 DE 4</span>
+      <div class="screen-title">Activar notificaciones</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Icono de campana decorativo</li><li>Título "Mantente al tanto de tu dinero"</li>
+          <li>Lista de beneficios con emoji</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="onb-household">Botón <em>Activar notificaciones</em> <span class="arrow">→</span> <span class="target">Paso 4 (Tipo de hogar)</span></div>
+        <div class="cta-row" data-to="onb-household">Enlace <em>Saltar</em> <span class="arrow">→</span> <span class="target">Paso 4 (Tipo de hogar)</span></div>
+      </div>
+    </div>
+
+    <div class="screen onb" id="onb-household">
+      <span class="screen-tag pill pill-onb">PASO 4 DE 4</span>
+      <div class="screen-title">¿Cuántas personas gestionan finanzas contigo?</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Opciones con emoji y descripción</li><li>Selector tipo radio button con animación</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="dashboard">Si elige <em>Solo</em> <span class="arrow">→</span> <span class="target">Panel principal</span></div>
+        <div class="cta-row" data-to="plan-select">Si elige <em>Familiar</em> <span class="arrow">→</span> <span class="target">Seleccionar plan</span></div>
+        <div class="cta-row" data-to="dashboard">Enlace <em>Saltar</em> <span class="arrow">→</span> <span class="target">Panel principal</span></div>
+      </div>
+    </div>
+
+    <div class="screen pay" id="plan-select">
+      <span class="screen-tag pill pill-pay">PAGO</span>
+      <div class="screen-title">Seleccionar plan (paywall)</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Toggle anual / mensual</li><li>3 tarjetas de planes (FREE, PRO, FAMILIAR)</li>
+          <li>Precio y beneficios por plan</li><li>Enlace de comparación completa</li>
+          <li>Enlace para activar código familiar</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="dashboard">Botón <em>Seleccionar plan</em> <span class="arrow">→</span> <span class="target">Panel principal</span></div>
+        <div class="cta-row" data-to="activate-token">Enlace <em>¿Tienes un código?</em> <span class="arrow">→</span> <span class="target">Activar invitación</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= COLUMNA 3: HUB ================= -->
+  <div class="col">
+    <div class="col-header">3 · Centro de la app</div>
+
+    <div class="screen hub" id="dashboard">
+      <span class="screen-tag pill pill-hub">HUB</span>
+      <div class="screen-title">Panel principal (Dashboard)</div>
+      <div class="section">
+        <div class="section-label">Encabezado</div>
+        <div class="section-content"><ul><li>Avatar y saludo al usuario</li><li>Icono de notificaciones</li></ul></div>
+      </div>
+      <div class="section">
+        <div class="section-label">Cuerpo</div>
+        <div class="section-content"><ul>
+          <li>Tarjeta hero de saldo</li><li>Botón flotante de captura por voz</li>
+          <li>Banner de bienvenida de prueba (si aplica)</li>
+          <li>Tres accesos rápidos</li><li>Gráfico de presupuestos del mes</li>
+        </ul></div>
+      </div>
+      <div class="section">
+        <div class="section-label">Barra inferior (siempre visible)</div>
+        <div class="section-content"><ul>
+          <li>Inicio</li><li>Transacciones</li><li>Botón + central (FAB)</li><li>Reportes</li><li>Perfil</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="history">Tab <em>Transacciones</em> <span class="arrow">→</span> <span class="target">Historial</span></div>
+        <div class="cta-row" data-to="reports">Tab <em>Reportes</em> <span class="arrow">→</span> <span class="target">Análisis financiero</span></div>
+        <div class="cta-row" data-to="profile">Tab <em>Perfil</em> <span class="arrow">→</span> <span class="target">Mi perfil</span></div>
+        <div class="cta-row" data-to="fab-menu">Botón <em>+ FAB</em> <span class="arrow">→</span> <span class="target">Elegir tipo</span></div>
+        <div class="cta-row" data-to="create-expense">Botón <em>+ Gasto</em> <span class="arrow">→</span> <span class="target">Registrar gasto</span></div>
+        <div class="cta-row" data-to="create-income">Botón <em>+ Ingreso</em> <span class="arrow">→</span> <span class="target">Registrar ingreso</span></div>
+        <div class="cta-row" data-to="voice">Botón <em>Voz</em> <span class="arrow">→</span> <span class="target">Captura por voz</span></div>
+        <div class="cta-row" data-to="recurring-list">Acceso <em>Recurrentes</em> <span class="arrow">→</span> <span class="target">Transacciones recurrentes</span></div>
+        <div class="cta-row" data-to="subs-list">Acceso <em>Suscripciones</em> <span class="arrow">→</span> <span class="target">Mis suscripciones</span></div>
+        <div class="cta-row" data-to="reminders-list">Acceso <em>Recordatorios</em> <span class="arrow">→</span> <span class="target">Recordatorios de pago</span></div>
+        <div class="cta-row" data-to="budget-summary">Acceso <em>Presupuestos</em> <span class="arrow">→</span> <span class="target">Resumen de presupuestos</span></div>
+        <div class="cta-row" data-to="plan-select">Banner <em>Mejora tu plan</em> <span class="arrow">→</span> <span class="target">Seleccionar plan</span></div>
+      </div>
+    </div>
+
+    <div class="screen money" id="fab-menu">
+      <span class="screen-tag pill pill-money">DINERO</span>
+      <div class="screen-title">Elegir tipo de transacción (FAB)</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul><li>Menú flotante con 4 botones grandes</li></ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="create-expense">Botón <em>Gasto</em> <span class="arrow">→</span> <span class="target">Registrar gasto</span></div>
+        <div class="cta-row" data-to="create-income">Botón <em>Ingreso</em> <span class="arrow">→</span> <span class="target">Registrar ingreso</span></div>
+        <div class="cta-row" data-to="create-sub">Botón <em>Suscripción</em> <span class="arrow">→</span> <span class="target">Crear suscripción</span></div>
+        <div class="cta-row" data-to="voice">Botón <em>Voz</em> <span class="arrow">→</span> <span class="target">Captura por voz</span></div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="history">
+      <span class="screen-tag pill pill-tools">HERRAMIENTAS</span>
+      <div class="screen-title">Historial de transacciones</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Selector de mes (← →)</li><li>Resumen del mes: gastos, ingresos, balance</li>
+          <li>Filtros (categoría, método de pago)</li>
+          <li>Lista de transacciones agrupadas por fecha</li>
+          <li>Cada item: icono, descripción, monto, fecha</li>
+          <li>Barra inferior + FAB</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="edit-expense">Toca un gasto <span class="arrow">→</span> <span class="target">Editar gasto</span></div>
+        <div class="cta-row" data-to="edit-income">Toca un ingreso <span class="arrow">→</span> <span class="target">Editar ingreso</span></div>
+        <div class="cta-row" data-to="create-expense">FAB <em>+ Gasto</em> <span class="arrow">→</span> <span class="target">Registrar gasto</span></div>
+        <div class="cta-row" data-to="create-income">FAB <em>+ Ingreso</em> <span class="arrow">→</span> <span class="target">Registrar ingreso</span></div>
+        <div class="state-row">⚙️ Sin movimientos → estado vacío</div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="reports">
+      <span class="screen-tag pill pill-tools">HERRAMIENTAS</span>
+      <div class="screen-title">Análisis financiero (Reportes)</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Selector de mes</li><li>Tabs: Resumen / Hallazgos</li>
+          <li><strong>Resumen:</strong> KPIs gastos/ingresos/balance</li>
+          <li>Top 5 categorías (barras)</li>
+          <li>Distribución por categoría (donut)</li>
+          <li>Tendencia 6 meses (línea)</li>
+          <li>Ingresos vs gastos (barras)</li>
+          <li><strong>Hallazgos:</strong> tasa de ahorro, fijos vs variables, peso de suscripciones, cumplimiento de presupuestos</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="subs-list">Botón <em>Ver suscripciones</em> <span class="arrow">→</span> <span class="target">Mis suscripciones</span></div>
+        <div class="cta-row" data-to="define-budgets">Botón <em>Definir presupuestos</em> <span class="arrow">→</span> <span class="target">Definir presupuestos</span></div>
+        <div class="cta-row" data-to="create-expense">Empty state <em>Registrar primer gasto</em> <span class="arrow">→</span> <span class="target">Registrar gasto</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= COLUMNA 4: REGISTRAR DINERO ================= -->
+  <div class="col">
+    <div class="col-header">4 · Registrar dinero</div>
+
+    <div class="screen money" id="create-expense">
+      <span class="screen-tag pill pill-money">DINERO</span>
+      <div class="screen-title">Registrar gasto</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Selector de perfil compartido (si aplica)</li>
+          <li>Campo de monto grande con $</li>
+          <li>Selector de categoría (icono + nombre)</li>
+          <li>Selector de método de pago</li>
+          <li>Toggle "Es recurrente"</li>
+          <li>Si recurrente: frecuencia, fecha inicio, fecha fin opcional</li>
+          <li>Vista previa de próximas ocurrencias</li>
+          <li>Selector de fecha</li>
+          <li>Campo descripción / nota</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="budget-summary">Botón <em>Registrar gasto</em> <span class="arrow">→</span> <span class="target">Resumen de presupuestos</span></div>
+        <div class="cta-row" data-to="plan-select">Límite alcanzado <span class="arrow">→</span> <span class="target">Seleccionar plan</span></div>
+        <div class="state-row">⚙️ Crear categoría nueva (sólo PRO)</div>
+      </div>
+    </div>
+
+    <div class="screen money" id="create-income">
+      <span class="screen-tag pill pill-money">DINERO</span>
+      <div class="screen-title">Registrar ingreso</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Selector de perfil compartido (si aplica)</li>
+          <li>Campo de monto grande</li><li>Selector de fuente del ingreso</li>
+          <li>Toggle "Es recurrente"</li><li>Selector de fecha</li>
+          <li>Campo descripción opcional</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="budget-summary">Botón <em>Guardar ingreso</em> <span class="arrow">→</span> <span class="target">Resumen de presupuestos</span></div>
+        <div class="cta-row" data-to="plan-select">Límite alcanzado <span class="arrow">→</span> <span class="target">Seleccionar plan</span></div>
+      </div>
+    </div>
+
+    <div class="screen money" id="voice">
+      <span class="screen-tag pill pill-money">DINERO</span>
+      <div class="screen-title">Captura por voz</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Botón grande de micrófono</li><li>Visualizador de onda animado</li>
+          <li>Transcripción del audio en vivo</li>
+          <li>Mensaje "Mantén presionado para hablar"</li>
+          <li>Modal de confirmación con datos detectados</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="create-expense">Detecta gasto <span class="arrow">→</span> <span class="target">Registrar gasto (precargado)</span></div>
+        <div class="cta-row" data-to="create-income">Detecta ingreso <span class="arrow">→</span> <span class="target">Registrar ingreso (precargado)</span></div>
+        <div class="cta-row" data-to="define-budgets">Detecta presupuesto <span class="arrow">→</span> <span class="target">Definir presupuestos</span></div>
+        <div class="state-row">⚙️ Sin permiso de micrófono</div>
+      </div>
+    </div>
+
+    <div class="screen money" id="edit-expense">
+      <span class="screen-tag pill pill-money">DINERO</span>
+      <div class="screen-title">Editar gasto</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Mismos campos que "Registrar gasto" pero precargados</li>
+          <li>Botones Guardar / Eliminar</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="budget-summary">Botón <em>Guardar</em> <span class="arrow">→</span> <span class="target">Resumen de presupuestos</span></div>
+        <div class="cta-row" data-to="recurring-detail">Si es recurrente <span class="arrow">→</span> <span class="target">Detalle recurrente</span></div>
+      </div>
+    </div>
+
+    <div class="screen money" id="edit-income">
+      <span class="screen-tag pill pill-money">DINERO</span>
+      <div class="screen-title">Editar ingreso</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Campos precargados</li><li>Botones Guardar / Eliminar</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="recurring-detail">Si es recurrente <span class="arrow">→</span> <span class="target">Detalle recurrente</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= COLUMNA 5: HERRAMIENTAS ================= -->
+  <div class="col">
+    <div class="col-header">5 · Herramientas</div>
+
+    <div class="screen tools" id="budget-summary">
+      <span class="screen-tag pill pill-tools">HERRAMIENTAS</span>
+      <div class="screen-title">Resumen de presupuestos</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Selector de mes</li>
+          <li>Tarjeta total: presupuestado, gastado, %</li>
+          <li>Lista de presupuestos por categoría</li>
+          <li>Cada tarjeta: icono, nombre, % usado, barra de progreso</li>
+          <li>FAB para crear movimientos</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="define-budgets">Botón <em>Editar presupuestos</em> <span class="arrow">→</span> <span class="target">Definir presupuestos</span></div>
+        <div class="cta-row" data-to="create-expense">FAB <em>+ Gasto</em> <span class="arrow">→</span> <span class="target">Registrar gasto</span></div>
+        <div class="cta-row" data-to="create-income">FAB <em>+ Ingreso</em> <span class="arrow">→</span> <span class="target">Registrar ingreso</span></div>
+        <div class="state-row">⚙️ Sin presupuestos → estado vacío</div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="define-budgets">
+      <span class="screen-tag pill pill-tools">HERRAMIENTAS</span>
+      <div class="screen-title">Definir presupuestos</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Chip "auto-guardado"</li>
+          <li>Lista de categorías con monto editable</li>
+          <li>Botón para agregar más categorías</li>
+          <li>Tarjeta resumen: total presupuestado vs ingreso</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row">Botón <em>Agregar categoría</em> abre modal de creación</div>
+        <div class="cta-row">Auto-guarda al editar montos</div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="subs-list">
+      <span class="screen-tag pill pill-tools">HERRAMIENTAS</span>
+      <div class="screen-title">Mis suscripciones</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Tarjeta resumen: total mensual, activas, canceladas</li>
+          <li>Tabs: Todas / Activas / Canceladas</li>
+          <li>Lista de suscripciones</li>
+          <li>Cada tarjeta: logo del servicio, nombre, monto mensual</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="create-sub">FAB <em>+ Crear suscripción</em> <span class="arrow">→</span> <span class="target">Crear suscripción</span></div>
+        <div class="state-row">⚙️ Sin suscripciones → estado vacío</div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="create-sub">
+      <span class="screen-tag pill pill-tools">HERRAMIENTAS</span>
+      <div class="screen-title">Crear suscripción</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Toggle: Plantilla / Manual</li>
+          <li>Grilla con logos de servicios (Netflix, Spotify, etc.)</li>
+          <li>Buscador de servicios</li>
+          <li>Campos: nombre, monto, ciclo (mensual/anual)</li>
+          <li>Selector de categoría y fecha de inicio</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="subs-list">Botón <em>Crear suscripción</em> <span class="arrow">→</span> <span class="target">Mis suscripciones</span></div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="reminders-list">
+      <span class="screen-tag pill pill-tools">HERRAMIENTAS</span>
+      <div class="screen-title">Recordatorios de pago</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Tabs: Todos / Activos / Inactivos</li>
+          <li>Lista de recordatorios</li>
+          <li>Cada tarjeta: descripción, monto, próxima fecha, toggle activar/desactivar</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="plan-select">Plan FREE bloqueado <span class="arrow">→</span> <span class="target">Seleccionar plan</span></div>
+        <div class="state-row">⚙️ Sin recordatorios → estado vacío</div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="recurring-list">
+      <span class="screen-tag pill pill-tools">HERRAMIENTAS</span>
+      <div class="screen-title">Transacciones recurrentes</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Chips: Todas / Activas / Pausadas</li>
+          <li>Lista de plantillas recurrentes</li>
+          <li>Cada tarjeta: icono, descripción, monto, frecuencia, próxima ejecución</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="recurring-detail">Tocar item <span class="arrow">→</span> <span class="target">Detalle recurrente</span></div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="recurring-detail">
+      <span class="screen-tag pill pill-tools">HERRAMIENTAS</span>
+      <div class="screen-title">Detalle recurrente</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Tarjeta principal con monto y descripción</li>
+          <li>Bloque recurrencia: frecuencia, inicio, fin, última, próxima</li>
+          <li>Bloque detalles: categoría, método, notas</li>
+          <li>Botones: Activar / Pausar / Editar / Eliminar / Ver historial</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="history">Botón <em>Ver transacciones</em> <span class="arrow">→</span> <span class="target">Historial</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= COLUMNA 6: PERFIL + FAMILIAR + PAGO ================= -->
+  <div class="col">
+    <div class="col-header">6 · Perfil · Familiar · Pago</div>
+
+    <div class="screen tools" id="profile">
+      <span class="screen-tag pill pill-tools">PERFIL</span>
+      <div class="screen-title">Mi perfil</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Avatar con iniciales y nombre</li><li>Correo electrónico</li>
+          <li>Tarjeta del plan actual (FREE/PRO/FAMILIAR)</li>
+          <li>Barra de progreso del plan / aviso vencimiento</li>
+          <li><strong>Información:</strong> nombre, teléfono, fecha de cuenta</li>
+          <li><strong>Configuración:</strong> contraseña, categorías, notificaciones</li>
+          <li><strong>Espacios:</strong> planes familiares</li>
+          <li><strong>Legal:</strong> términos, privacidad, ayuda</li>
+          <li>Selector de tema (claro / oscuro)</li>
+          <li>Número de versión</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="edit-profile">Botón <em>Editar perfil</em> <span class="arrow">→</span> <span class="target">Editar perfil</span></div>
+        <div class="cta-row" data-to="change-pwd">Botón <em>Cambiar contraseña</em> <span class="arrow">→</span> <span class="target">Cambiar contraseña</span></div>
+        <div class="cta-row" data-to="manage-cat">Botón <em>Gestionar categorías</em> <span class="arrow">→</span> <span class="target">Gestionar categorías</span></div>
+        <div class="cta-row" data-to="plan-select">Botón <em>Mejorar plan</em> <span class="arrow">→</span> <span class="target">Seleccionar plan</span></div>
+        <div class="cta-row" data-to="family-tokens">Botón <em>Plan familiar (admin)</em> <span class="arrow">→</span> <span class="target">Plan familiar titular</span></div>
+        <div class="cta-row" data-to="my-token">Botón <em>Mi token (miembro)</em> <span class="arrow">→</span> <span class="target">Mi token familiar</span></div>
+        <div class="cta-row" data-to="activate-token">Botón <em>Activar token</em> <span class="arrow">→</span> <span class="target">Activar invitación</span></div>
+        <div class="cta-row" data-to="login">Botón <em>Cerrar sesión</em> <span class="arrow">→</span> <span class="target">Iniciar sesión</span></div>
+        <div class="cta-row" data-to="delete-account">Botón <em>Eliminar cuenta</em> <span class="arrow">→</span> <span class="target">Eliminar mi cuenta</span></div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="edit-profile">
+      <span class="screen-tag pill pill-tools">PERFIL</span>
+      <div class="screen-title">Editar perfil</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Avatar con iniciales</li><li>Campo nombre completo</li>
+          <li>Campo número celular</li><li>Correo (bloqueado, sólo lectura)</li>
+          <li>Sección seguridad (icono escudo)</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="profile">Botón <em>Guardar cambios</em> <span class="arrow">→</span> <span class="target">Mi perfil</span></div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="change-pwd">
+      <span class="screen-tag pill pill-tools">PERFIL</span>
+      <div class="screen-title">Cambiar contraseña</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Icono escudo + texto sobre seguridad</li>
+          <li>Tarjeta con requisitos de contraseña</li>
+          <li>Campo contraseña actual</li>
+          <li>Campo contraseña nueva con checks en vivo</li>
+          <li>Campo confirmar contraseña</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="profile">Botón <em>Guardar contraseña</em> <span class="arrow">→</span> <span class="target">Mi perfil</span></div>
+      </div>
+    </div>
+
+    <div class="screen tools" id="manage-cat">
+      <span class="screen-tag pill pill-tools">PERFIL</span>
+      <div class="screen-title">Gestionar categorías</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Tarjeta de cuota (X de Y categorías)</li>
+          <li>Aviso si plan FREE (algunas bloqueadas)</li>
+          <li>Lista de categorías: icono, nombre, color</li>
+          <li>Insignia predeterminada / bloqueada</li>
+          <li>Botones editar / eliminar por item</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row">Botón <em>+ Agregar categoría</em> abre modal</div>
+        <div class="state-row">⚙️ Cuota completa → FAB deshabilitado</div>
+      </div>
+    </div>
+
+    <div class="screen pay" id="delete-account">
+      <span class="screen-tag pill pill-pay">PAGO</span>
+      <div class="screen-title">Eliminar mi cuenta</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Tarjeta de advertencia roja</li>
+          <li>Texto sobre 30 días de recuperación</li>
+          <li>Lista de qué se eliminará</li>
+          <li>Email de la cuenta a eliminar</li>
+          <li>Campo contraseña actual</li>
+          <li>Campo motivo (opcional)</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="login">Botón rojo <em>Eliminar mi cuenta</em> <span class="arrow">→</span> <span class="target">Iniciar sesión</span></div>
+      </div>
+    </div>
+
+    <div class="group-divider">Plan familiar y espacios</div>
+
+    <div class="screen pay" id="family-tokens">
+      <span class="screen-tag pill pill-pay">FAMILIAR</span>
+      <div class="screen-title">Plan familiar — Titular</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Tarjeta hero del plan</li>
+          <li>Estadísticas: enviadas, activos, pendientes</li>
+          <li>Lista de miembros activos con avatares</li>
+          <li>Lista de invitaciones pendientes (reenviar/revocar)</li>
+          <li>Tarjeta de ayuda</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row">Botón <em>Enviar invitación</em> abre flujo de envío</div>
+      </div>
+    </div>
+
+    <div class="screen pay" id="my-token">
+      <span class="screen-tag pill pill-pay">FAMILIAR</span>
+      <div class="screen-title">Mi token familiar (Miembro)</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Tarjeta hero "Eres parte del plan familiar"</li>
+          <li>Datos del titular</li>
+          <li>Código AURI-XXXX-YYYY (si pendiente)</li>
+          <li>O indicador "Auri PRO desbloqueado"</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="screen pay" id="activate-token">
+      <span class="screen-tag pill pill-pay">FAMILIAR</span>
+      <div class="screen-title">Activar invitación</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Tarjeta hero "¿Tienes un código?"</li>
+          <li>Prefijo visual AURI- (no editable)</li>
+          <li>Campo para el resto del código</li>
+          <li>Mensaje de error si no es válido</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="dashboard">Botón <em>Activar</em> <span class="arrow">→</span> <span class="target">Panel principal</span></div>
+      </div>
+    </div>
+
+    <div class="screen pay" id="create-space">
+      <span class="screen-tag pill pill-pay">ESPACIO</span>
+      <div class="screen-title">Crear perfil compartido</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Campo nombre del perfil</li>
+          <li>Validación de longitud</li>
+          <li>Selector visual de 6 colores</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row">Botón <em>Crear perfil</em> guarda el espacio</div>
+        <div class="cta-row" data-to="plan-select">Sin plan PRO <span class="arrow">→</span> <span class="target">Seleccionar plan</span></div>
+      </div>
+    </div>
+
+    <div class="screen pay" id="accept-invite">
+      <span class="screen-tag pill pill-pay">ESPACIO</span>
+      <div class="screen-title">Aceptar invitación de perfil</div>
+      <div class="section">
+        <div class="section-label">Lo que se ve</div>
+        <div class="section-content"><ul>
+          <li>Tarjeta visual con color del perfil</li>
+          <li>"Invitado por [nombre]"</li>
+          <li>Tiempo hasta expiración</li>
+          <li>Descripción del acceso que tendrá</li>
+        </ul></div>
+      </div>
+      <div class="cta-list">
+        <div class="cta-row" data-to="dashboard">Botón <em>Aceptar</em> <span class="arrow">→</span> <span class="target">Panel principal</span></div>
+        <div class="cta-row" data-to="plan-select">Requiere PRO <span class="arrow">→</span> <span class="target">Seleccionar plan</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div class="footer-note">
+  <strong>Cómo leer el mapa</strong><br/>
+  • Cada caja blanca es una pantalla real de la app.<br/>
+  • Las pastillas moradas son botones / acciones. La <strong>línea curva</strong> sale del punto morado y termina en la pantalla de destino.<br/>
+  • Las filas grises con ⚙️ son estados especiales (ej. "plan free alcanzó el límite") y no dibujan línea.<br/>
+  • <strong>Pasa el cursor</strong> sobre cualquier pantalla para resaltar sólo las conexiones que entran y salen de ella.<br/>
+  • Usa los botones del encabezado para mostrar u ocultar todas las conexiones.<br/>
+</div>
+
+<script>
+(function () {
+  const svg = document.getElementById('svg-connections');
+  const canvas = document.querySelector('.canvas');
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  // Add arrowhead defs
+  const defs = document.createElementNS(SVG_NS, 'defs');
+  defs.innerHTML = `
+    <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8A2BE2" />
+    </marker>
+    <marker id="arrowhead-hub" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#00A5C0" />
+    </marker>
+    <marker id="arrowhead-pay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#D03939" />
+    </marker>
+    <marker id="arrowhead-money" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1E9A53" />
+    </marker>
+    <marker id="arrowhead-tools" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3B6FE3" />
+    </marker>
+    <marker id="arrowhead-auth" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8A2BE2" />
+    </marker>
+    <marker id="arrowhead-onb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#E08A1E" />
+    </marker>
+  `;
+  svg.appendChild(defs);
+
+  function getScreenCategory(screen) {
+    if (!screen) return 'tools';
+    if (screen.classList.contains('hub')) return 'hub';
+    if (screen.classList.contains('pay')) return 'pay';
+    if (screen.classList.contains('money')) return 'money';
+    if (screen.classList.contains('onb')) return 'onb';
+    if (screen.classList.contains('auth')) return 'auth';
+    return 'tools';
+  }
+
+  function buildPaths() {
+    // Sync SVG to canvas dimensions
+    const canvasRect = canvas.getBoundingClientRect();
+    svg.setAttribute('width', canvasRect.width);
+    svg.setAttribute('height', canvasRect.height);
+    svg.setAttribute('viewBox', `0 0 ${canvasRect.width} ${canvasRect.height}`);
+
+    // Clear existing paths
+    Array.from(svg.querySelectorAll('path.connection')).forEach(p => p.remove());
+
+    const ctas = document.querySelectorAll('.cta-row[data-to]');
+    ctas.forEach(cta => {
+      const targetId = cta.dataset.to;
+      const target = document.getElementById(targetId);
+      if (!target) return;
+
+      const sourceScreen = cta.closest('.screen');
+      const sourceId = sourceScreen ? sourceScreen.id : '';
+
+      const ctaRect = cta.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+
+      // Source: right-center of CTA
+      const x1 = ctaRect.right - canvasRect.left;
+      const y1 = ctaRect.top + ctaRect.height / 2 - canvasRect.top;
+
+      // Target: enter from the left or right depending on relative position
+      let x2, y2;
+      const targetCenterX = targetRect.left + targetRect.width / 2;
+      const sourceCenterX = ctaRect.left + ctaRect.width / 2;
+
+      if (targetCenterX > sourceCenterX) {
+        // Target is to the right → enter from left
+        x2 = targetRect.left - canvasRect.left - 4;
+        y2 = targetRect.top + 30 - canvasRect.top;
+      } else {
+        // Target is to the left → enter from right
+        x2 = targetRect.right - canvasRect.left + 4;
+        y2 = targetRect.top + 30 - canvasRect.top;
+      }
+
+      // Cubic bezier control points
+      const dx = x2 - x1;
+      const c1x = x1 + Math.sign(dx) * Math.max(60, Math.abs(dx) * 0.45);
+      const c2x = x2 - Math.sign(dx) * Math.max(60, Math.abs(dx) * 0.45);
+
+      const d = `M ${x1} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}`;
+
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('class', 'connection color-' + getScreenCategory(target));
+      path.setAttribute('marker-end', 'url(#arrowhead-' + getScreenCategory(target) + ')');
+      path.dataset.from = sourceId;
+      path.dataset.to = targetId;
+      svg.appendChild(path);
+    });
+  }
+
+  let lockedScreen = null;
+
+  function getRelatedScreenIds(screenId) {
+    const related = new Set([screenId]);
+    svg.querySelectorAll('path.connection').forEach(p => {
+      if (p.dataset.from === screenId) related.add(p.dataset.to);
+      if (p.dataset.to === screenId) related.add(p.dataset.from);
+    });
+    return related;
+  }
+
+  function highlightRelated(screenId) {
+    const paths = svg.querySelectorAll('path.connection');
+    paths.forEach(p => {
+      if (p.dataset.from === screenId || p.dataset.to === screenId) {
+        p.classList.add('is-active');
+        p.classList.remove('is-dimmed');
+      } else {
+        p.classList.add('is-dimmed');
+        p.classList.remove('is-active');
+      }
+    });
+    document.querySelectorAll('.screen').forEach(s => {
+      if (s.id === screenId) {
+        s.classList.add('highlighted');
+        s.classList.remove('dimmed');
+      } else {
+        const isRelated = Array.from(svg.querySelectorAll('path.connection.is-active'))
+          .some(p => p.dataset.from === s.id || p.dataset.to === s.id);
+        if (!isRelated) s.classList.add('dimmed');
+      }
+    });
+  }
+
+  function clearHighlight() {
+    svg.querySelectorAll('path.connection').forEach(p => {
+      p.classList.remove('is-active', 'is-dimmed');
+    });
+    document.querySelectorAll('.screen').forEach(s => {
+      s.classList.remove('highlighted', 'dimmed');
+    });
+  }
+
+  function lockSelection(screenId) {
+    lockedScreen = screenId;
+    document.body.classList.add('is-locked');
+    document.getElementById('btn-unlock').style.display = '';
+
+    const related = getRelatedScreenIds(screenId);
+
+    svg.querySelectorAll('path.connection').forEach(p => {
+      p.classList.remove('is-active', 'is-dimmed', 'is-hidden');
+      if (p.dataset.from === screenId || p.dataset.to === screenId) {
+        p.classList.add('is-active');
+      } else {
+        p.classList.add('is-hidden');
+      }
+    });
+
+    document.querySelectorAll('.screen').forEach(s => {
+      s.classList.remove('highlighted', 'dimmed', 'is-focus', 'is-related', 'is-hidden');
+      if (s.id === screenId) {
+        s.classList.add('is-focus');
+      } else if (related.has(s.id)) {
+        s.classList.add('is-related');
+      } else {
+        s.classList.add('is-hidden');
+      }
+    });
+  }
+
+  function unlockSelection() {
+    lockedScreen = null;
+    document.body.classList.remove('is-locked');
+    document.getElementById('btn-unlock').style.display = 'none';
+    svg.querySelectorAll('path.connection').forEach(p => {
+      p.classList.remove('is-active', 'is-dimmed', 'is-hidden');
+    });
+    document.querySelectorAll('.screen').forEach(s => {
+      s.classList.remove('highlighted', 'dimmed', 'is-focus', 'is-related', 'is-hidden');
+    });
+  }
+
+  function attachHoverHandlers() {
+    document.querySelectorAll('.screen').forEach(screen => {
+      screen.addEventListener('mouseenter', () => {
+        if (!lockedScreen) highlightRelated(screen.id);
+      });
+      screen.addEventListener('mouseleave', () => {
+        if (!lockedScreen) clearHighlight();
+      });
+      screen.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (lockedScreen === screen.id) {
+          unlockSelection();
+        } else {
+          clearHighlight();
+          lockSelection(screen.id);
+        }
+      });
+    });
+    document.getElementById('btn-unlock').addEventListener('click', (e) => {
+      e.stopPropagation();
+      unlockSelection();
+    });
+  }
+
+  function showAll() {
+    svg.style.display = '';
+  }
+  function hideAll() {
+    svg.style.display = 'none';
+  }
+
+  document.getElementById('btn-all').addEventListener('click', showAll);
+  document.getElementById('btn-clear').addEventListener('click', hideAll);
+
+  // Initial build
+  function build() {
+    buildPaths();
+  }
+
+  // Wait for fonts/layout to settle
+  if (document.readyState === 'complete') {
+    requestAnimationFrame(() => { build(); attachHoverHandlers(); });
+  } else {
+    window.addEventListener('load', () => {
+      requestAnimationFrame(() => { build(); attachHoverHandlers(); });
+    });
+  }
+
+  // Rebuild on resize
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(build, 150);
+  });
+})();
+</script>
+
+</body>
+</html>
